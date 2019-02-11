@@ -1,6 +1,6 @@
 import MediaStreamRecorder from 'msr';
 
-const METRONOME_URL = "./dist/metronome_60bpm_5s.wav";
+const METRONOME_URL = "./dist/metronome_60bpm_5s_divided.wav";
 const RECORDING_DURATION = 5000; // 5s
 let mediaRecorder;
 let recordButton;
