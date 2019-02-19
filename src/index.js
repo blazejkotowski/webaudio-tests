@@ -1,4 +1,5 @@
 import MediaStreamRecorder from 'msr';
+import MiniRecorder from './mini_recorder.js';
 
 const METRONOME_URL = "./dist/metronome_60bpm_5s_divided.wav";
 const RECORDING_DURATION = 5000; // 5s
@@ -6,7 +7,6 @@ let mediaRecorder;
 let recordButton;
 let downloadPart;
 
-navigator.getUserMedia =
   navigator.getUserMedia ||
   navigator.webkitGetUserMedia ||
   navigator.mozGetUserMedia;
