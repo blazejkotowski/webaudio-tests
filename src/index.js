@@ -7,6 +7,8 @@ let mediaRecorder;
 let recordButton;
 let downloadPart;
 
+let miniRecorder;
+
   navigator.getUserMedia ||
   navigator.webkitGetUserMedia ||
   navigator.mozGetUserMedia;
@@ -91,12 +93,18 @@ const setupDOM = () => {
     downloadPart = document.getElementById("download-part")
 };
 
+const setupMiniRecorder = () => {
+    miniRecorder = new MiniRecorder();
+    miniRecorder.loadBackingTrack(METRONOME_URL);
+};
+
 const addEventListeners = () => {
     recordButton.addEventListener('click', (e) => {
         recordButton.setAttribute("disabled", "");
-        startRecording().then(() => {
-            recordButton.removeAttribute("disabled");
-        });
+        miniRecorder.record(RECORDING_DURATION);
+        // startRecording().then(() => {
+            // recordButton.removeAttribute("disabled");
+        // });
     });
 };
 
@@ -104,4 +112,5 @@ const addEventListeners = () => {
 loadMetronomeTrack();
 setUpRecorder();
 setupDOM();
+setTimeout(setupMiniRecorder, 500);
 addEventListeners();
