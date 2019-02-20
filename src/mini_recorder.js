@@ -8,28 +8,29 @@ export class MiniRecorder {
         let AudioContext = window.AudioContext||window.webkitAudioContext;
         this.audioContext = new AudioContext();
 
-        this.audioBuffers = [];
-
         navigator.mediaDevices.getUserMedia(
             {audio: true}
         ).then((stream) => {
             this.microphoneSource = this.audioContext.createMediaStreamSource(stream);
-            this.recorderNode = this.audioContext.createScriptProcessor(0, 1, 1);
-            console.log("Audio processing buffer size: " + this.recorderNode.bufferSize);
-            this.recorderNode.onaudioprocess = (audioProcessingEvent) => {
-                console.log("got audio chunk event");
-                this.saveAudioChunk(audioProcessingEvent.inputBuffer);
-            };
         }).catch(() => {
             alert("Can't record audio on your browser");
         });
     };
 
+    _prepareRecorder() {
+        this.audioBuffers = [];
+        this.audioLength = 0;
+        this.recorderNode = this.audioContext.createScriptProcessor(0, 1, 1);
+        console.log("Audio processing buffer size: " + this.recorderNode.bufferSize);
+        this.recorderNode.onaudioprocess = (audioProcessingEvent) => {
+            this.saveAudioChunk(audioProcessingEvent.inputBuffer);
+        }
+    }
+
     saveAudioChunk(inputBuffer) {
-        // we only care for mono
-        console.log("Saving audio chunk:", inputBuffer);
-        this.audioBuffers.push(inputBuffer[0]);
-        audioLength += inputBuffer[0].length;
+        // copy must be done
+        this.audioBuffers.push(inputBuffer.getChannelData(0).slice());
+        this.audioLength += inputBuffer.getChannelData(0).length;
     }
 
     loadBackingTrack(backing_track_url) {
@@ -38,15 +39,20 @@ export class MiniRecorder {
         request.responseType = "arraybuffer";
         request.onload = () => {
             this.audioContext.decodeAudioData(request.response, (buffer) => {
-                this.sourceNode = this.audioContext.createBufferSource();
-                this.sourceNode.buffer = buffer;
-                this.sourceNode.connect(this.audioContext.destination);
+                this.decodedAudio = buffer;
             });
         };
         request.send();
     }
 
+    prepareBackingTrack() {
+        this.sourceNode = this.audioContext.createBufferSource();
+        this.sourceNode.buffer = this.decodedAudio;
+        this.sourceNode.connect(this.audioContext.destination);
+    }
+
     playBackingTrack(scheduledTime) {
+        this.prepareBackingTrack();
         this.sourceNode.start(scheduledTime);
     }
 
@@ -62,34 +68,40 @@ export class MiniRecorder {
     }
 
     record(time) {
-        this.audioBuffers = [];
-        this.audioLength = 0;
-        let currentTime = this.audioContext.currentTime;
-        let startTime = currentTime + 0.1;
-        let endTime = startTime + (time/1000);
-        this.playBackingTrack(startTime);
-        this.stopBackingTrack(endTime);
-        while (this.audioContext.currentTime < startTime) {
-            // wait
-        }
-        this.microphoneSource.connect(this.recorderNode);
-        console.log("microphone source", this.microphoneSource);
-        console.log("recorder node", this.recorderNode);
-        setTimeout(() => {
-            while (this.audioContext.currentTime < endTime) {
-                // wait
-            }
-            this.microphoneSource.disconnect(this.recorderNode);
-            console.log("Start time: " + startTime + ", end time: " + endTime);
-            console.log(this.getAudioBlob());
-        }, time);
+        this._prepareRecorder();
+
+        return new Promise((resolve, reject) => {
+            let currentTime = this.audioContext.currentTime;
+            let startTime = currentTime;
+            let endTime = startTime + (time/1000);
+            this.playBackingTrack(startTime);
+            this.stopBackingTrack(endTime);
+            this.microphoneSource.connect(this.recorderNode);
+            this.recorderNode.connect(this.audioContext.destination);
+            setTimeout(() => {
+                while (this.audioContext.currentTime < endTime) {
+                    // wait
+                }
+                this.recorderNode.disconnect(this.audioContext.destination);
+                this.microphoneSource.disconnect(this.recorderNode);
+                console.log("Start time: " + startTime + ", end time: " + endTime);
+                console.log("Audio length: " + this.audioLength + " samples");
+                let resultBlob = this.getAudioBlob();
+                console.log(resultBlob);
+                resolve(resultBlob);
+            }, time);
+        });
     }
 
 
     _mergeBuffers() {
         let resultBuffer = new Float32Array(this.audioLength);
         let offset = 0;
+        window.audioBuffers = this.audioBuffers;
+        console.log("Merging buffers");
+        console.log("Total buffers: " + this.audioBuffers.length);
         for (let i = 0; i < this.audioBuffers.length; ++i) {
+            // console.log(this.audioBuffers[i]);
             resultBuffer.set(this.audioBuffers[i], offset);
             offset += this.audioBuffers[i].length;
         }
