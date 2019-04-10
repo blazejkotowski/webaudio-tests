@@ -79,9 +79,6 @@ export class MiniRecorder {
             this.microphoneSource.connect(this.recorderNode);
             this.recorderNode.connect(this.audioContext.destination);
             setTimeout(() => {
-                while (this.audioContext.currentTime < endTime) {
-                    // wait
-                }
                 this.recorderNode.disconnect(this.audioContext.destination);
                 this.microphoneSource.disconnect(this.recorderNode);
                 console.log("Start time: " + startTime + ", end time: " + endTime);
